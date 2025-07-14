@@ -36,9 +36,9 @@ beta_narutalk/
 │   ├── 📁 chroma_db/               # ChromaDB 벡터 데이터베이스
 │   ├── 📁 raw_data/                # 원본 문서 데이터
 │   └── 📁 relationdb/              # SQLite 관계형 데이터베이스
-├── 📁 models/                      # AI 모델 파일
-│   ├── 📁 KURE-V1/                 # 한국어 임베딩 모델
-│   └── 📁 bge-reranker-v2-m3-ko/   # 재랭킹 모델
+├── 📁 models/                      # AI 모델 파일 (호환성 유지용)
+│   ├── 📁 KURE-V1/                 # 한국어 임베딩 모델 (로컬 백업)
+│   └── 📁 bge-reranker-v2-m3-ko/   # 재랭킹 모델 (로컬 백업)
 ├── 📁 venv/                        # 가상환경
 ├── requirements.txt                # 패키지 의존성 (33 lines)
 ├── run_server.py                   # 서버 실행 스크립트 (159 lines)
@@ -65,7 +65,7 @@ beta_narutalk/
   - 일반 대화: 기본 대화 처리
 
 #### 🔍 임베딩 서비스 (embedding_service.py)
-- **모델**: KURE-V1 한국어 임베딩 모델
+- **모델**: nlpai-lab/KURE-v1 한국어 특화 임베딩 모델
 - **데이터베이스**: ChromaDB 벡터 저장소
 - **기능**: 문서 임베딩, 유사도 검색, 문서 인덱싱
 
@@ -133,14 +133,14 @@ beta_narutalk/
 ## 🤖 AI 모델 관리
 
 ### 1. KURE-V1 임베딩 모델
-- **경로**: `models/KURE-V1/`
+- **모델 ID**: `nlpai-lab/KURE-v1`
 - **용도**: 한국어 텍스트 임베딩 생성
-- **특징**: 한국어 특화 문맥 이해
+- **특징**: 한국어 특화 문맥 이해, 허깅페이스에서 자동 다운로드
 
 ### 2. BGE 재랭킹 모델
-- **경로**: `models/bge-reranker-v2-m3-ko/`
+- **모델 ID**: `dragonkue/bge-reranker-v2-m3-ko`
 - **용도**: 검색 결과 재순위 매기기
-- **특징**: 한국어 검색 성능 향상
+- **특징**: 한국어 검색 성능 향상, 허깅페이스에서 자동 다운로드
 
 ## 📦 의존성 관리
 

@@ -88,8 +88,8 @@ def check_directories():
 def check_models():
     """모델 파일 확인"""
     print("🔍 허깅페이스 모델 사용 모드로 설정됨")
-    print("   - 임베딩 모델: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-    print("   - 리랭커 모델: cross-encoder/ms-marco-MiniLM-L-6-v2")
+    print("   - 임베딩 모델: nlpai-lab/KURE-v1")
+    print("   - 리랭커 모델: dragonkue/bge-reranker-v2-m3-ko")
     print("   - 로컬 모델 다운로드 불필요")
     
     # 로컬 모델 디렉토리 확인 (참고용)
