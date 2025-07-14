@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from .services import s3_service, postgres_service
 from .schemas.document import DocumentMeta
+from .routers.user_router import router as user_router
+from typing import List
 
 app = FastAPI()
 
@@ -69,4 +71,6 @@ def get_pgadmin_url():
 @app.get("/admin/opensearch-dashboards-url/")
 def get_opensearch_dashboards_url():
     # TODO: 관리자 인증 후 URL 안내
-    return {"url": "http://localhost:5601"} 
+    return {"url": "http://localhost:5601"}
+
+app.include_router(user_router, prefix="/user", tags=["User"]) 
