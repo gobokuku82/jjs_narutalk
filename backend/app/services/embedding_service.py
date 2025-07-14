@@ -72,8 +72,8 @@ class EmbeddingService:
             
             # 폴백: 기본 모델 시도
             try:
-                logger.info("기본 임베딩 모델 로드 시도: sentence-transformers/all-MiniLM-L6-v2")
-                self.embedding_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+                logger.info("기본 임베딩 모델 로드 시도: nlpai-lab/KURE-v1")
+                self.embedding_model = SentenceTransformer('nlpai-lab/KURE-v1')
                 self.model_loaded = True
                 logger.info("기본 임베딩 모델 로드 성공")
             except Exception as fallback_e:
