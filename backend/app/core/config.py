@@ -45,14 +45,11 @@ class Settings(BaseSettings):
     openai_timeout: int = 30
     
     # HuggingFace 설정
-    huggingface_token: Optional[str] = None
-    
-    # HuggingFace 설정
     huggingface_token: Optional[str] = os.getenv("HUGGINGFACE_TOKEN")
     
     # 허깅페이스 모델 ID (로컬 모델 대신 사용)
-    embedding_model_id: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # 가벼운 다국어 임베딩 모델
-    reranker_model_id: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # 가벼운 리랭커 모델
+    embedding_model_id: str = "nlpai-lab/KURE-v1"  # 한국어 특화 임베딩 모델
+    reranker_model_id: str = "dragonkue/bge-reranker-v2-m3-ko"  # 한국어 특화 리랭커 모델
     
     # 모델 사용 방식 설정
     use_huggingface_models: bool = True  # 허깅페이스 모델 사용 여부
