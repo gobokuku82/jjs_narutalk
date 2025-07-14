@@ -1,21 +1,22 @@
 """
-4개 전문 Agent 시스템
+Agents Package
 
-OpenAI Function Calling 기반으로 작동하는 전문 AI Agent들:
-1. ChromaDB Agent - 문서 검색 및 질문답변
-2. Employee DB Agent - 직원 정보 검색  
-3. Client Analysis Agent - 고객 데이터 분석
-4. Rule Compliance Agent - 규정 준수 분석
+4개의 전문 Agent 모듈을 관리합니다.
+- db_agent: 내부 벡터 검색 Agent
+- docs_agent: 문서자동생성 및 규정위반검색 Agent  
+- employee_agent: 내부직원정보검색 Agent
+- client_agent: 거래처분석 Agent
 """
 
-from .chroma_db_agent import ChromaDBAgent
-from .employee_db_agent import EmployeeDBAgent
-from .client_analysis_agent import ClientAnalysisAgent
-from .rule_compliance_agent import RuleComplianceAgent
+# 새로운 폴더 구조의 Agent들 import
+from .db_agent import DBAgent
+from .docs_agent import DocsAgent
+from .employee_agent import EmployeeAgent
+from .client_agent import ClientAgent
 
 __all__ = [
-    "ChromaDBAgent",
-    "EmployeeDBAgent", 
-    "ClientAnalysisAgent",
-    "RuleComplianceAgent"
+    "DBAgent",
+    "DocsAgent", 
+    "EmployeeAgent",
+    "ClientAgent"
 ] 

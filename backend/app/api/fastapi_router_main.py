@@ -12,17 +12,19 @@ logger = logging.getLogger(__name__)
 # API 라우터 생성
 api_router = APIRouter()
 
-# 🚀 State Management 기반 Tool Calling 라우터 시스템
+# 🚀 Router Agent 기반 시스템
 try:
-    from .routers.fastapi_router_tool_calling import router as state_managed_router
-    api_router.include_router(state_managed_router, prefix="/tool-calling", tags=["State Managed Chat"])
-    logger.info("✅ State Management 시스템 로드 완료")
-    logger.info("   - LangGraph StateGraph 기반")
-    logger.info("   - 세션별 대화 기록 관리")
-    logger.info("   - 컨텍스트 유지 및 상태 지속성")
+    from ..services.router_agent import tool_calling_router
+    api_router.include_router(tool_calling_router, prefix="/tool-calling", tags=["Tool Calling Chat"])
+    logger.info("✅ Router Agent 시스템 로드 완료")
+    logger.info("   - OpenAI GPT-4o Tool Calling 기반")
     logger.info("   - 4개 전문 Agent 자동 라우팅")
+    logger.info("   - db_agent: 내부 벡터 검색")
+    logger.info("   - docs_agent: 문서자동생성 및 규정위반검색")
+    logger.info("   - employee_agent: 내부직원정보검색")
+    logger.info("   - client_agent: 거래처분석")
 except Exception as e:
-    logger.warning(f"❌ State Management 시스템 로드 실패: {str(e)}")
+    logger.warning(f"❌ Router Agent 시스템 로드 실패: {str(e)}")
 
 # 메인 시스템 정보 엔드포인트
 @api_router.get("/system/info")

@@ -1,0 +1,1 @@
+# (기존 embedding_service.py 전체 코드 복사, 상위 import를 현재 폴더 기준으로 수정) 
