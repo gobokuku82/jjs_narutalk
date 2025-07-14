@@ -23,6 +23,19 @@ services:
     depends_on:
       - postgres
 
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./minio_data:/data
+
   opensearch-node1:
     image: opensearchproject/opensearch:2.13.0
     container_name: opensearch-node1
