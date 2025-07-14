@@ -45,9 +45,6 @@ class Settings(BaseSettings):
     openai_timeout: int = 30
     
     # HuggingFace 설정
-    huggingface_token: Optional[str] = None
-    
-    # HuggingFace 설정
     huggingface_token: Optional[str] = os.getenv("HUGGINGFACE_TOKEN")
     
     # 허깅페이스 모델 ID (로컬 모델 대신 사용)
