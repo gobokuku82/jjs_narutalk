@@ -41,7 +41,7 @@ async def system_info():
             "🔍 대화 기록 검색 및 분석"
         ],
         "agents": {
-            "chroma_db_agent": {
+            "chroma_db_agent": { 
                 "name": "문서 검색 에이전트",
                 "description": "ChromaDB 기반 회사 문서 검색 및 질문답변",
                 "capabilities": ["정책 검색", "규정 조회", "매뉴얼 검색"]
