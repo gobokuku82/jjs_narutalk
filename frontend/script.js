@@ -12,6 +12,16 @@ const clearChatBtn = document.getElementById('clearChat');
 const exportChatBtn = document.getElementById('exportChat');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
+// 디버깅 모드 (개발 환경에서 true로 설정)
+const DEBUG_MODE = true;
+
+// 디버깅 로그 함수
+function debugLog(message, data = null) {
+    if (DEBUG_MODE) {
+        console.log(`[DEBUG] ${message}`, data);
+    }
+}
+
 // 세션 ID 생성
 function generateSessionId() {
     return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -24,6 +34,8 @@ function generateUserId() {
 
 // 이벤트 리스너 등록
 document.addEventListener('DOMContentLoaded', function() {
+    debugLog('DOM 로드 완료');
+    
     // 메시지 전송 이벤트
     sendButton.addEventListener('click', sendMessage);
     chatInput.addEventListener('keypress', function(e) {
@@ -55,12 +67,39 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Session ID:', sessionId);
     console.log('User ID:', userId);
     console.log('Main Agent Router: 4개 전문 Agent 자동 라우팅');
+    
+    // 서버 연결 테스트
+    testServerConnection();
 });
+
+// 서버 연결 테스트
+async function testServerConnection() {
+    try {
+        debugLog('서버 연결 테스트 시작');
+        const response = await fetch('/api/v1/health', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            debugLog('서버 연결 성공', data);
+        } else {
+            debugLog('서버 연결 실패', { status: response.status, statusText: response.statusText });
+        }
+    } catch (error) {
+        debugLog('서버 연결 테스트 오류', error);
+    }
+}
 
 // 메시지 전송 함수 (스트리밍 방식)
 async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message || isLoading) return;
+
+    debugLog('메시지 전송 시작', { message: message.substring(0, 50) + '...' });
 
     // 사용자 메시지 표시
     addMessage(message, 'user');
@@ -74,11 +113,23 @@ async function sendMessage() {
     let currentContent = '';
     let agentType = 'unknown';
     let finalData = null;
+    let hasError = false;
 
     try {
-        // 스트리밍 엔드포인트 호출
+        // 스트리밍 엔드포인트 호출 - 직접 URL 확인
         const endpoint = '/api/v1/tool-calling/chat/stream';
-        console.log('스트리밍 API 호출:', endpoint);
+        
+        // 브라우저 콘솔에서 확인할 수 있도록 전체 URL 출력
+        console.log('[DEBUG] 호출할 전체 URL:', window.location.origin + endpoint);
+        debugLog('스트리밍 API 호출', { endpoint, message: message.substring(0, 50) + '...' });
+        
+        // 디버깅을 위한 추가 정보
+        console.log('[DEBUG] 전체 요청 정보:', {
+            url: endpoint,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: { message: message, session_id: sessionId }
+        });
         
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -91,8 +142,12 @@ async function sendMessage() {
             })
         });
 
+        debugLog('API 응답 받음', { status: response.status, ok: response.ok });
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            debugLog('API 오류 응답', { status: response.status, error: errorText });
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
 
         const reader = response.body.getReader();
@@ -103,17 +158,20 @@ async function sendMessage() {
         const resetTimeout = () => {
             if (timeoutId) clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
+                debugLog('스트리밍 타임아웃 발생');
                 reader.cancel();
-                throw new Error('스트리밍 응답 시간 초과');
+                throw new Error('스트리밍 응답 시간 초과 (30초)');
             }, 30000); // 30초 타이머
         };
         
         resetTimeout();
         
+        let lineCount = 0;
         while (true) {
             const { done, value } = await reader.read();
             
             if (done) {
+                debugLog('스트리밍 완료', { lineCount });
                 if (timeoutId) clearTimeout(timeoutId);
                 break;
             }
@@ -124,11 +182,13 @@ async function sendMessage() {
             const lines = chunk.split('\n');
             
             for (const line of lines) {
+                lineCount++;
                 if (line.startsWith('data: ')) {
                     const dataStr = line.slice(6); // 'data: ' 제거
                     
                     if (dataStr === '[DONE]') {
                         // 스트리밍 완료
+                        debugLog('스트리밍 완료 신호 받음');
                         hideStreamingLoading();
                         
                         // 최종 Agent 정보 표시
@@ -147,10 +207,12 @@ async function sendMessage() {
                     
                     try {
                         const data = JSON.parse(dataStr);
+                        debugLog('스트리밍 데이터 수신', { type: data.type, data: data });
                         
                         switch (data.type) {
                             case 'start':
                                 updateLoadingMessage('AI가 분석 중입니다...');
+                                agentType = data.agent || 'unknown';
                                 break;
                             case 'agent_selection':
                                 updateLoadingMessage('적절한 전문 Agent를 선택하고 있습니다...');
@@ -158,6 +220,13 @@ async function sendMessage() {
                             case 'agent_info':
                                 agentType = data.agent;
                                 updateLoadingMessage(`${data.agent} Agent가 처리합니다...`);
+                                break;
+                            case 'token':
+                                // 토큰별로 텍스트 누적 (공백 제거 - 한국어는 토큰간 공백이 불필요)
+                                if (data.word) {
+                                    currentContent += data.word;
+                                    updateBotMessageContent(messageContainer, currentContent, false);
+                                }
                                 break;
                             case 'content':
                                 // 실시간으로 텍스트 업데이트
@@ -167,21 +236,36 @@ async function sendMessage() {
                                 break;
                             case 'complete':
                                 finalData = data;
+                                if (data.content) {
+                                    currentContent = data.content;
+                                    updateBotMessageContent(messageContainer, currentContent, true);
+                                }
                                 break;
                             case 'error':
+                                hasError = true;
                                 throw new Error(data.message);
                         }
                     } catch (parseError) {
-                        console.error('JSON 파싱 오류:', parseError);
+                        debugLog('JSON 파싱 오류', { error: parseError, dataStr });
+                        // 파싱 오류는 무시하고 계속 진행
                     }
                 }
             }
         }
 
     } catch (error) {
-        console.error('스트리밍 메시지 전송 오류:', error);
+        debugLog('스트리밍 메시지 전송 오류', error);
         hideStreamingLoading();
-        addMessage('죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.', 'bot');
+        
+        // 에러 메시지 표시
+        const errorMessage = `죄송합니다. 오류가 발생했습니다: ${error.message}`;
+        addMessage(errorMessage, 'bot');
+        
+        // 디버깅 정보 추가
+        if (DEBUG_MODE) {
+            const debugInfo = `디버그 정보: ${error.stack || error.message}`;
+            addMessage(debugInfo, 'bot');
+        }
     }
 }
 

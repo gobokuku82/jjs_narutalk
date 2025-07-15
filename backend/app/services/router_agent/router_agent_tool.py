@@ -2,6 +2,7 @@
 Router Agent Tool Calling Module
 
 OpenAI GPT-4o Tool Calling을 사용한 Agent 라우팅 기능
+JSON 스키마 기반 에이전트 정의
 """
 
 import json
@@ -9,21 +10,22 @@ import logging
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
 from ...core.config import settings
+from .schema_loader import AgentSchemaLoader
 
 logger = logging.getLogger(__name__)
 
 class RouterAgentTool:
-    """Tool Calling 기반 라우팅 기능"""
+    """Tool Calling 기반 라우팅 기능 (JSON 스키마 기반)"""
     
     def __init__(self):
         self.openai_client = None
-        self.agent_functions = []
+        self.schema_loader = None
         
         # OpenAI 클라이언트 초기화
         self._initialize_openai_client()
         
-        # Agent 함수 정의
-        self._define_agent_functions()
+        # JSON 스키마 로더 초기화
+        self._initialize_schema_loader()
     
     def _initialize_openai_client(self):
         """OpenAI 클라이언트 초기화"""
@@ -40,169 +42,55 @@ class RouterAgentTool:
         except Exception as e:
             logger.error(f"Router Agent Tool OpenAI 클라이언트 초기화 실패: {str(e)}")
     
-    def _define_agent_functions(self):
-        """4개의 전문 Agent 함수 정의"""
-        self.agent_functions = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "db_agent",
-                    "description": "내부 벡터 검색 Agent. ChromaDB를 사용한 문서 검색, 정책 검색, 지식베이스 질문답변을 처리합니다.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "검색할 질문이나 키워드"
-                            },
-                            "search_type": {
-                                "type": "string",
-                                "enum": ["semantic", "keyword", "hybrid"],
-                                "description": "검색 타입 (의미 검색, 키워드 검색, 하이브리드)"
-                            },
-                            "document_type": {
-                                "type": "string",
-                                "enum": ["policy", "manual", "regulation", "general"],
-                                "description": "문서 타입"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "docs_agent",
-                    "description": "문서 자동생성 및 규정 위반 검색 Agent. 문서 생성, 컴플라이언스 검토, 규정 위반 분석을 처리합니다.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "task_type": {
-                                "type": "string",
-                                "enum": ["generate_document", "compliance_check", "regulation_violation"],
-                                "description": "작업 타입"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "처리할 내용이나 생성할 문서 요구사항"
-                            },
-                            "document_template": {
-                                "type": "string",
-                                "enum": ["report", "memo", "proposal", "analysis"],
-                                "description": "문서 템플릿 타입"
-                            },
-                            "regulation_category": {
-                                "type": "string",
-                                "enum": ["ethics", "finance", "hr", "safety", "general"],
-                                "description": "규정 카테고리"
-                            }
-                        },
-                        "required": ["task_type", "content"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "employee_agent",
-                    "description": "내부 직원정보 검색 Agent. 직원 프로필, 부서 정보, 조직도, 연락처 등을 검색합니다.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "search_type": {
-                                "type": "string",
-                                "enum": ["name", "department", "position", "id", "skill", "project"],
-                                "description": "검색 유형"
-                            },
-                            "search_value": {
-                                "type": "string",
-                                "description": "검색할 값 (이름, 부서명, 직급, ID 등)"
-                            },
-                            "detail_level": {
-                                "type": "string",
-                                "enum": ["basic", "detailed", "full"],
-                                "description": "정보 상세 레벨"
-                            }
-                        },
-                        "required": ["search_type", "search_value"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "client_agent",
-                    "description": "거래처 분석 Agent. 고객 데이터 분석, 거래 이력, 매출 분석, 비즈니스 인사이트를 제공합니다.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "analysis_type": {
-                                "type": "string",
-                                "enum": ["profile", "transaction", "sales", "trend", "risk", "opportunity"],
-                                "description": "분석 유형"
-                            },
-                            "client_id": {
-                                "type": "string",
-                                "description": "고객 ID (선택사항)"
-                            },
-                            "time_period": {
-                                "type": "string",
-                                "description": "분석 기간 (예: 2024-01 ~ 2024-12)"
-                            },
-                            "metrics": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "분석할 지표들"
-                            }
-                        },
-                        "required": ["analysis_type"]
-                    }
-                }
-            }
-        ]
-        
-        logger.info("Router Agent Tool 함수 정의 완료 - 4개 전문 Agent 등록")
+    def _initialize_schema_loader(self):
+        """JSON 스키마 로더 초기화"""
+        try:
+            self.schema_loader = AgentSchemaLoader()
+            logger.info("JSON 스키마 로더 초기화 완료")
+        except Exception as e:
+            logger.error(f"JSON 스키마 로더 초기화 실패: {str(e)}")
+            self.schema_loader = None
     
     async def call_tool(self, message: str) -> Dict[str, Any]:
         """OpenAI Tool Calling 실행"""
         if not self.openai_client:
-            return {
-                "error": "OpenAI 클라이언트가 초기화되지 않았습니다.",
-                "tool_call": None,
-                "general_response": None
-            }
+            return self._get_fallback_response(message, "OpenAI 클라이언트가 초기화되지 않았습니다.")
         
         try:
             logger.info(f"Tool Calling 실행: {message[:50]}...")
             
+            # JSON 스키마에서 함수 정의와 설정 가져오기
+            if not self.schema_loader:
+                return self._get_fallback_response(message, "JSON 스키마 로더가 초기화되지 않았습니다.")
+            
+            function_definitions = self.schema_loader.get_function_definitions()
+            system_prompt = self.schema_loader.get_system_prompt()
+            settings_data = self.schema_loader.get_settings()
+            
+            if not function_definitions:
+                return self._get_fallback_response(message, "함수 정의를 로드할 수 없습니다.")
+            
+            logger.info(f"Tool Calling 설정: 함수 {len(function_definitions)}개, 모델 {settings_data.get('model', 'gpt-4o')}")
+            
             # OpenAI Tool Calling 요청
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",
+                model=settings_data.get("model", "gpt-4o"),
                 messages=[
                     {
                         "role": "system",
-                        "content": """당신은 NaruTalk AI 챗봇의 메인 라우터입니다. 
-                        사용자의 요청을 분석하고 가장 적절한 전문 Agent를 선택해야 합니다.
-
-                        Agent 선택 가이드:
-                        1. db_agent: 문서 검색, 정책 문의, 지식베이스 질문답변, 벡터 검색
-                        2. docs_agent: 문서 자동생성, 규정 위반 검색, 컴플라이언스 검토
-                        3. employee_agent: 직원 정보 검색, 조직도, 연락처, 부서 정보
-                        4. client_agent: 거래처 분석, 고객 데이터, 매출 분석, 비즈니스 인사이트
-
-                        사용자의 질문을 분석하고 적절한 함수를 호출하세요.
-                        질문의 의도를 정확히 파악하여 최적의 Agent를 선택하는 것이 중요합니다."""
+                        "content": system_prompt
                     },
                     {
-                        "role": "user",
+                        "role": "user", 
                         "content": message
                     }
                 ],
-                tools=self.agent_functions,
-                tool_choice="auto",
-                temperature=0.1  # 일관된 라우팅을 위해 낮은 temperature 사용
+                tools=function_definitions,
+                tool_choice=settings_data.get("tool_choice", "auto"),
+                temperature=settings_data.get("temperature", 0.1)
             )
+            
+            logger.info(f"OpenAI 응답 받음: {len(response.choices)} choices")
             
             # Tool Call 결과 확인
             if response.choices[0].message.tool_calls:
@@ -234,26 +122,89 @@ class RouterAgentTool:
                 
         except Exception as e:
             logger.error(f"Tool Calling 실패: {str(e)}")
+            return self._get_fallback_response(message, f"Tool Calling 오류: {str(e)}")
+    
+    def _get_fallback_response(self, message: str, error_msg: str) -> Dict[str, Any]:
+        """Fallback 응답 생성 - 키워드 기반 라우팅"""
+        logger.warning(f"Fallback 라우팅 사용: {error_msg}")
+        
+        # 간단한 키워드 기반 라우팅
+        message_lower = message.lower()
+        
+        if any(keyword in message_lower for keyword in ["직원", "인사", "연락처", "조직", "부서"]):
             return {
-                "error": str(e),
-                "tool_call": None,
+                "tool_call": {
+                    "function_name": "employee_agent",
+                    "function_args": {"search_type": "name", "search_value": message},
+                    "confidence": 0.7
+                },
                 "general_response": None
+            }
+        elif any(keyword in message_lower for keyword in ["문서", "정책", "규정", "검색", "찾기"]):
+            return {
+                "tool_call": {
+                    "function_name": "db_agent", 
+                    "function_args": {"query": message, "search_type": "semantic"},
+                    "confidence": 0.7
+                },
+                "general_response": None
+            }
+        elif any(keyword in message_lower for keyword in ["거래처", "고객", "분석", "매출", "비즈니스"]):
+            return {
+                "tool_call": {
+                    "function_name": "client_agent",
+                    "function_args": {"analysis_type": "profile"},
+                    "confidence": 0.7
+                },
+                "general_response": None
+            }
+        elif any(keyword in message_lower for keyword in ["컴플라이언스", "위반", "규정", "생성", "문서생성"]):
+            return {
+                "tool_call": {
+                    "function_name": "docs_agent",
+                    "function_args": {"task_type": "compliance_check", "content": message},
+                    "confidence": 0.7
+                },
+                "general_response": None
+            }
+        else:
+            # 일반 대화
+            return {
+                "tool_call": None,
+                "general_response": f"'{message}'에 대한 질문을 처리하기 위해서는 더 구체적인 정보가 필요합니다. 직원 정보, 문서 검색, 거래처 분석, 컴플라이언스 검토 중 어떤 도움이 필요하신지 알려주세요.",
+                "confidence": 0.3
             }
     
     def get_agent_functions(self) -> List[Dict[str, Any]]:
-        """Agent 함수 목록 반환"""
-        return self.agent_functions
+        """Agent 함수 목록 반환 (JSON 스키마 기반)"""
+        if self.schema_loader:
+            return self.schema_loader.get_function_definitions()
+        return []
     
     def is_initialized(self) -> bool:
         """초기화 상태 확인"""
         return self.openai_client is not None
     
     def get_tool_stats(self) -> Dict[str, Any]:
-        """Tool Calling 통계 정보"""
+        """Tool Calling 통계 정보 (JSON 스키마 기반)"""
+        if not self.schema_loader:
+            return {
+                "tool_name": "RouterAgentTool",
+                "total_functions": 0,
+                "available_functions": [],
+                "initialized": False,
+                "error": "JSON 스키마 로더가 초기화되지 않음"
+            }
+        
+        schema_stats = self.schema_loader.get_schema_stats()
+        function_definitions = self.schema_loader.get_function_definitions()
+        
         return {
-            "tool_name": "RouterAgentTool",
-            "openai_model": "gpt-4o",
-            "total_functions": len(self.agent_functions),
-            "available_functions": [func["function"]["name"] for func in self.agent_functions],
-            "initialized": self.is_initialized()
+            "tool_name": "RouterAgentTool (JSON Schema)",
+            "total_functions": schema_stats["total_functions"],
+            "available_functions": [func["function"]["name"] for func in function_definitions],
+            "initialized": self.is_initialized() and self.schema_loader is not None,
+            "openai_model": self.schema_loader.get_settings().get("model", "gpt-4o"),
+            "schema_loaded": schema_stats["schema_loaded"],
+            "schema_path": schema_stats["schema_path"]
         } 

@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pathlib import Path
 from openai import OpenAI
-from ...core.config import settings
+from ....core.config import settings
 from .embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
