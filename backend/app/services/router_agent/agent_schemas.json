@@ -1,0 +1,172 @@
+{
+  "agents": {
+    "db_agent": {
+      "name": "DB Agent",
+      "description": "내부 벡터 검색 Agent. ChromaDB를 사용한 문서 검색, 정책 검색, 지식베이스 질문답변을 처리합니다.",
+      "module_path": "..agents.db_agent",
+      "class_name": "DBAgent",
+      "capabilities": ["문서 검색", "정책 검색", "지식베이스 QA", "벡터 검색"],
+      "function_definition": {
+        "type": "function",
+        "function": {
+          "name": "db_agent",
+          "description": "내부 벡터 검색 Agent. ChromaDB를 사용한 문서 검색, 정책 검색, 지식베이스 질문답변을 처리합니다.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "검색할 질문이나 키워드"
+              },
+              "search_type": {
+                "type": "string",
+                "enum": ["semantic", "keyword", "hybrid"],
+                "description": "검색 타입 (의미 검색, 키워드 검색, 하이브리드)"
+              },
+              "document_type": {
+                "type": "string",
+                "enum": ["policy", "manual", "regulation", "general"],
+                "description": "문서 타입"
+              }
+            },
+            "required": ["query"]
+          }
+        }
+      },
+      "default_args": {
+        "search_type": "semantic",
+        "document_type": "general"
+      }
+    },
+    "docs_agent": {
+      "name": "Docs Agent",
+      "description": "문서 자동생성 및 규정 위반 검색 Agent. 문서 생성, 컴플라이언스 검토, 규정 위반 분석을 처리합니다.",
+      "module_path": "..agents.docs_agent",
+      "class_name": "DocsAgent",
+      "capabilities": ["문서 생성", "컴플라이언스 검토", "규정 위반 분석", "문서 템플릿"],
+      "function_definition": {
+        "type": "function",
+        "function": {
+          "name": "docs_agent",
+          "description": "문서 자동생성 및 규정 위반 검색 Agent. 문서 생성, 컴플라이언스 검토, 규정 위반 분석을 처리합니다.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_type": {
+                "type": "string",
+                "enum": ["generate_document", "compliance_check", "regulation_violation"],
+                "description": "작업 타입"
+              },
+              "content": {
+                "type": "string",
+                "description": "처리할 내용이나 생성할 문서 요구사항"
+              },
+              "document_template": {
+                "type": "string",
+                "enum": ["report", "memo", "proposal", "analysis"],
+                "description": "문서 템플릿 타입"
+              },
+              "regulation_category": {
+                "type": "string",
+                "enum": ["ethics", "finance", "hr", "safety", "general"],
+                "description": "규정 카테고리"
+              }
+            },
+            "required": ["task_type", "content"]
+          }
+        }
+      },
+      "default_args": {
+        "task_type": "generate_document",
+        "document_template": "report",
+        "regulation_category": "general"
+      }
+    },
+    "employee_agent": {
+      "name": "Employee Agent",
+      "description": "내부 직원정보 검색 Agent. 직원 프로필, 부서 정보, 조직도, 연락처 등을 검색합니다.",
+      "module_path": "..agents.employee_agent",
+      "class_name": "EmployeeAgent",
+      "capabilities": ["직원 검색", "조직도", "연락처", "부서 정보"],
+      "function_definition": {
+        "type": "function",
+        "function": {
+          "name": "employee_agent",
+          "description": "내부 직원정보 검색 Agent. 직원 프로필, 부서 정보, 조직도, 연락처 등을 검색합니다.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "search_type": {
+                "type": "string",
+                "enum": ["name", "department", "position", "id", "skill", "project"],
+                "description": "검색 유형"
+              },
+              "search_value": {
+                "type": "string",
+                "description": "검색할 값 (이름, 부서명, 직급, ID 등)"
+              },
+              "detail_level": {
+                "type": "string",
+                "enum": ["basic", "detailed", "full"],
+                "description": "정보 상세 레벨"
+              }
+            },
+            "required": ["search_type", "search_value"]
+          }
+        }
+      },
+      "default_args": {
+        "search_type": "name",
+        "detail_level": "basic"
+      }
+    },
+    "client_agent": {
+      "name": "Client Agent",
+      "description": "거래처 분석 Agent. 고객 데이터 분석, 거래 이력, 매출 분석, 비즈니스 인사이트를 제공합니다.",
+      "module_path": "..agents.client_agent",
+      "class_name": "ClientAgent",
+      "capabilities": ["고객 분석", "거래 이력", "매출 분석", "비즈니스 인사이트"],
+      "function_definition": {
+        "type": "function",
+        "function": {
+          "name": "client_agent",
+          "description": "거래처 분석 Agent. 고객 데이터 분석, 거래 이력, 매출 분석, 비즈니스 인사이트를 제공합니다.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "analysis_type": {
+                "type": "string",
+                "enum": ["profile", "transaction", "sales", "trend", "risk", "opportunity"],
+                "description": "분석 유형"
+              },
+              "client_id": {
+                "type": "string",
+                "description": "고객 ID (선택사항)"
+              },
+              "time_period": {
+                "type": "string",
+                "description": "분석 기간 (예: 2024-01 ~ 2024-12)"
+              },
+              "metrics": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "분석할 지표들"
+              }
+            },
+            "required": ["analysis_type"]
+          }
+        }
+      },
+      "default_args": {
+        "analysis_type": "profile",
+        "time_period": "2024-01 ~ 2024-12"
+      }
+    }
+  },
+  "system_prompt": "당신은 NaruTalk AI 챗봇의 메인 라우터입니다. 사용자의 요청을 분석하고 가장 적절한 전문 Agent를 선택해야 합니다.\n\nAgent 선택 가이드:\n1. db_agent: 문서 검색, 정책 문의, 지식베이스 질문답변, 벡터 검색\n2. docs_agent: 문서 자동생성, 규정 위반 검색, 컴플라이언스 검토\n3. employee_agent: 직원 정보 검색, 조직도, 연락처, 부서 정보\n4. client_agent: 거래처 분석, 고객 데이터, 매출 분석, 비즈니스 인사이트\n\n사용자의 질문을 분석하고 적절한 함수를 호출하세요. 질문의 의도를 정확히 파악하여 최적의 Agent를 선택하는 것이 중요합니다.",
+  "settings": {
+    "model": "gpt-4o",
+    "temperature": 0.1,
+    "tool_choice": "auto"
+  }
+} 

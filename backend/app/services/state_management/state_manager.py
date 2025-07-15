@@ -14,7 +14,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from .state_schema import ConversationState, MessageState, MessageRole, AgentType
 from .session_manager import SessionManager
-from ..main_agent_router import MainAgentRouter
+from ..router_agent.router_agent import RouterAgent
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class StateManager:
     
     def __init__(self):
         self.session_manager = SessionManager()
-        self.agent_router = MainAgentRouter()
+        self.agent_router = RouterAgent(use_state_graph=False)
         
         # LangGraph StateGraph 생성
         self.workflow = self._create_workflow()
@@ -103,8 +103,8 @@ class StateManager:
             
             logger.info(f"에이전트 라우팅: {session_id}")
             
-            # MainAgentRouter를 통해 에이전트 선택
-            routing_result = await self.agent_router.route_message(
+            # RouterAgent를 통해 에이전트 선택
+            routing_result = await self.agent_router.route_request(
                 message=current_message,
                 session_id=session_id,
                 user_id=state["user_id"]
@@ -193,8 +193,8 @@ class StateManager:
             
             # 만약 아직 응답이 없다면 기본 응답 생성
             if not state["last_agent_response"]:
-                # MainAgentRouter를 통해 다시 처리
-                routing_result = await self.agent_router.route_message(
+                # RouterAgent를 통해 다시 처리
+                routing_result = await self.agent_router.route_request(
                     message=current_message,
                     session_id=session_id,
                     user_id=state["user_id"]

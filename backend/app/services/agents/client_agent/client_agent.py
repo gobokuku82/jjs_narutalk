@@ -11,7 +11,7 @@ import pandas as pd
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
-from ...core.config import settings
+from ....core.config import settings
 from .database_service import DatabaseService
 
 logger = logging.getLogger(__name__)

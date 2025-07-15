@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, List, Optional
 import sqlite3
 from pathlib import Path
-from ...core.config import settings
+from ....core.config import settings
 from .database_service import DatabaseService
 
 logger = logging.getLogger(__name__)

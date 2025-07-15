@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # 추가 필드 무시
 
 # 설정 인스턴스 생성
 settings = Settings() 
