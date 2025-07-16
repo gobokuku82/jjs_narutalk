@@ -125,6 +125,31 @@ class MainAgentRouter:
                         "required": ["content"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "employee_performance_agent",
+                    "description": "직원 실적 분석 및 보고서 생성. 엑셀 데이터를 기반으로 실적 분석, 목표 대비 달성률 계산, 급증/급감 품목 분석, 전문적인 보고서 생성을 수행합니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "start_month": {
+                                "type": "string",
+                                "description": "분석 시작 월 (예: 202312)"
+                            },
+                            "end_month": {
+                                "type": "string", 
+                                "description": "분석 종료 월 (예: 202403)"
+                            },
+                            "save_report": {
+                                "type": "boolean",
+                                "description": "Word 문서로 보고서 저장 여부"
+                            }
+                        },
+                        "required": []
+                    }
+                }
             }
         ]
         
@@ -155,6 +180,7 @@ class MainAgentRouter:
                         2. employee_db_agent: 직원 정보, 조직도, 연락처 문의  
                         3. client_analysis_agent: 고객 정보, 매출 분석, 거래 현황
                         4. rule_compliance_agent: 규정 검토, 컴플라이언스 확인
+                        5. employee_performance_agent: 직원 실적 분석, 목표 대비 달성률, 급증/급감 품목 분석, 전문 보고서 생성
 
                         사용자의 질문을 분석하고 적절한 함수를 호출하세요."""
                     },
@@ -232,6 +258,43 @@ class MainAgentRouter:
                 from .agents.rule_compliance_agent import RuleComplianceAgent
                 agent = RuleComplianceAgent()
                 return await agent.process(function_args, original_message)
+                
+            elif function_name == "employee_performance_agent":
+                # Employee Performance Agent 실행
+                from .agents.employee_agent import EmployeePerformanceAgent
+                agent = EmployeePerformanceAgent()
+                
+                # LangGraph를 사용하여 분석 실행
+                result = agent.run_analysis()
+                
+                if result.get("error"):
+                    return {
+                        "response": f"실적 분석 중 오류가 발생했습니다: {result['error']}",
+                        "sources": [],
+                        "metadata": {"error": result["error"]}
+                    }
+                
+                # 보고서 생성
+                report = result.get("report", "보고서 생성에 실패했습니다.")
+                
+                # Word 문서 저장 (옵션)
+                save_report = function_args.get("save_report", False)
+                if save_report:
+                    filename = f"실적분석보고서_{function_args.get('start_month', '202312')}_{function_args.get('end_month', '202403')}.docx"
+                    save_result = agent.save_report_to_docx(report, filename)
+                    metadata = {"report_saved": save_result}
+                else:
+                    metadata = {"report_saved": "저장하지 않음"}
+                
+                return {
+                    "response": report,
+                    "sources": [],
+                    "metadata": {
+                        "analysis_result": result.get("analysis_result", {}),
+                        "report_saved": metadata["report_saved"],
+                        "agent": "employee_performance_agent"
+                    }
+                }
             
             else:
                 return {

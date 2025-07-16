@@ -300,11 +300,79 @@ async def get_available_tools():
 @router.post("/test-tool")
 async def test_tool_legacy(tool_name: str, tool_args: Dict[str, Any]):
     """
-    도구 테스트 (Legacy 호환성)
+    레거시 툴 테스트 엔드포인트
     """
-    return {
-        "message": "Legacy tool testing is no longer supported",
-        "recommendation": "Use /chat endpoint with StateManager for proper agent routing",
-        "tool_name": tool_name,
-        "args": tool_args
-    } 
+    try:
+        result = await state_manager.test_tool(tool_name, tool_args)
+        return result
+    except Exception as e:
+        logger.error(f"Test tool error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Tool test failed: {str(e)}"
+        )
+
+@router.post("/employee/performance-analysis")
+async def employee_performance_analysis(
+    start_month: str = "202312",
+    end_month: str = "202403", 
+    save_report: bool = True
+):
+    """
+    직원 실적 분석 전용 API
+    
+    Features:
+    - LangGraph StateGraph 기반 실적 분석
+    - 목표 대비 달성률 계산
+    - 급증/급감 품목 분석
+    - LLM 기반 전문 보고서 생성
+    - Word 문서 자동 저장 (옵션)
+    """
+    try:
+        from ...services.agents.employee_agent import EmployeePerformanceAgent
+        
+        # 에이전트 초기화
+        agent = EmployeePerformanceAgent()
+        
+        # LangGraph를 사용하여 분석 실행
+        result = agent.run_analysis()
+        
+        if result.get("error"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"실적 분석 중 오류: {result['error']}"
+            )
+        
+        # 분석 결과 추출
+        analysis_result = result.get("analysis_result", {})
+        report = result.get("report", "보고서 생성에 실패했습니다.")
+        
+        # Word 문서 저장 (옵션)
+        report_filename = None
+        if save_report:
+            filename = f"실적분석보고서_{start_month}_{end_month}.docx"
+            save_result = agent.save_report_to_docx(report, filename)
+            report_filename = filename
+        
+        return {
+            "success": True,
+            "analysis_period": f"{start_month} ~ {end_month}",
+            "total_performance": analysis_result.get("total_performance", 0),
+            "total_target": analysis_result.get("total_target", 0),
+            "achievement_rate": analysis_result.get("achievement_rate", 0),
+            "employee_count": len(analysis_result.get("employee_analysis", [])),
+            "report": report,
+            "report_filename": report_filename,
+            "metadata": {
+                "agent": "employee_performance_agent",
+                "langgraph_workflow": True,
+                "llm_generated": True
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Employee performance analysis error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"직원 실적 분석 실패: {str(e)}"
+        ) 
