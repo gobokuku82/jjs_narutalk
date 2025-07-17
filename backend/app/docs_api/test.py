@@ -7,9 +7,9 @@ from typing import Annotated, TypedDict, List, Optional
 import os
 import docx
 from pathlib import Path
+from dotenv import load_dotenv
 
-# OpenAI API 키 설정 (환경변수에서 가져오기)
-# os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+load_dotenv()
 
 # -----------------------
 # LangGraph State Schema

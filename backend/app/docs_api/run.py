@@ -38,7 +38,8 @@ def run_document_agent(user_request: Optional[str] = None) -> dict:
         "violation": None,
         "final_doc": None,
         "retry_count": 0,
-        "restart_classification": False
+        "restart_classification": False,
+        "classification_retry_count": None
     }
     
     try:
@@ -50,16 +51,36 @@ def run_document_agent(user_request: Optional[str] = None) -> dict:
         print("="*60)
         print(f"📋 문서 타입: {final_state.get('doc_type', 'N/A')}")
         print(f"🔄 재시도 횟수: {final_state.get('retry_count', 0)}")
+        print(f"🔍 규정 검사: {'✅ 통과' if final_state.get('violation') == 'OK' else '❌ 위반'}")
         
         # 입력 데이터 상세 출력
         filled_data = final_state.get('filled_data', {})
         if filled_data:
-            print(f"\n📝 파싱된 입력 데이터:")
-            print("-" * 40)
+            print(f"\n📝 최종 파싱 결과:")
+            print("="*60)
+            
+            filled_count = 0
+            empty_count = 0
+            
             for key, value in filled_data.items():
-                if value:  # 빈 값이 아닌 경우만 출력
-                    print(f"• {key}: {value}")
-            print("-" * 40)
+                if value and str(value).strip():  # 빈 값이 아닌 경우
+                    print(f"📌 {key}:")
+                    print(f"   {value}")
+                    print()
+                    filled_count += 1
+                else:
+                    print(f"📌 {key}: (정보 없음)")
+                    empty_count += 1
+            
+            # 완성도 정보
+            total_fields = len(filled_data)
+            completion_rate = (filled_count / total_fields) * 100 if total_fields > 0 else 0
+            
+            print("-" * 60)
+            print(f"📊 데이터 완성도: {completion_rate:.1f}% ({filled_count}/{total_fields} 항목)")
+            print("="*60)
+        else:
+            print("\n❌ 파싱된 데이터가 없습니다.")
         
         print(f"\n✅ 문서 작성 프로세스 완료!")
         
@@ -83,7 +104,7 @@ def analyze_results(result: dict):
         return
     
     print(f"\n" + "="*60)
-    print("🔍 결과 분석")
+    print("🔍 상세 결과 분석")
     print("="*60)
     
     # 기본 정보
@@ -94,28 +115,49 @@ def analyze_results(result: dict):
     
     print(f"📋 문서 타입: {doc_type}")
     print(f"🔄 재시도 횟수: {retry_count}")
-    print(f"🔍 규정 검사: {'통과' if violation == 'OK' else '위반 발견'}")
+    print(f"🔍 규정 검사: {'✅ 통과' if violation == 'OK' else '❌ 위반 발견'}")
     
     # 데이터 완성도 분석
     if filled_data:
         total_fields = len(filled_data)
-        filled_fields = sum(1 for value in filled_data.values() if value)
+        filled_fields = sum(1 for value in filled_data.values() if value and str(value).strip())
         completion_rate = (filled_fields / total_fields) * 100 if total_fields > 0 else 0
         
-        print(f"📊 데이터 완성도: {completion_rate:.1f}% ({filled_fields}/{total_fields})")
+        print(f"📊 데이터 완성도: {completion_rate:.1f}% ({filled_fields}/{total_fields} 항목)")
         
-        # 빈 필드 확인
-        empty_fields = [key for key, value in filled_data.items() if not value]
-        if empty_fields:
-            print(f"⚠️ 빈 필드: {', '.join(empty_fields[:3])}{'...' if len(empty_fields) > 3 else ''}")
+        # 채워진 필드와 빈 필드 구분
+        filled_field_names = [key for key, value in filled_data.items() if value and str(value).strip()]
+        empty_field_names = [key for key, value in filled_data.items() if not value or not str(value).strip()]
+        
+        if filled_field_names:
+            print(f"\n✅ 채워진 필드 ({len(filled_field_names)}개):")
+            for field in filled_field_names[:5]:  # 최대 5개만 표시
+                print(f"   • {field}")
+            if len(filled_field_names) > 5:
+                print(f"   • ... 외 {len(filled_field_names) - 5}개")
+        
+        if empty_field_names:
+            print(f"\n⚠️ 빈 필드 ({len(empty_field_names)}개):")
+            for field in empty_field_names[:5]:  # 최대 5개만 표시
+                print(f"   • {field}")
+            if len(empty_field_names) > 5:
+                print(f"   • ... 외 {len(empty_field_names) - 5}개")
     
     # 처리 상태
+    print(f"\n📈 처리 상태:")
     if retry_count == 0:
-        print("✅ 처리 상태: 정상 완료")
+        print("   ✅ 정상 완료 (재시도 없음)")
     elif retry_count < 3:
-        print(f"⚠️ 처리 상태: {retry_count}회 재시도 후 완료")
+        print(f"   ⚠️ {retry_count}회 재시도 후 완료")
     else:
-        print("❌ 처리 상태: 최대 재시도 횟수 초과")
+        print("   ❌ 최대 재시도 횟수 초과")
+    
+    # 전체 메시지 수
+    messages = result.get('messages', [])
+    if messages:
+        print(f"📝 총 메시지 수: {len(messages)}개")
+    
+    print("="*60)
 
 
 # -----------------------

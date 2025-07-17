@@ -5,15 +5,12 @@ from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Annotated, TypedDict, List, Optional
 import os
-import json
+import docx
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# -----------------------
-# LangGraph State Schema
-# -----------------------
 class State(TypedDict):
     messages: List[HumanMessage]
     doc_type: Optional[str]
@@ -23,7 +20,10 @@ class State(TypedDict):
     final_doc: Optional[str]
     retry_count: int
     restart_classification: Optional[bool]
-
+    classification_retry_count: Optional[int]
+    end_process: Optional[bool]
+    parse_retry_count: Optional[int]
+    parse_failed: Optional[bool]
 
 class DocumentDraftAgent:
     """지능형 문서 초안 작성 시스템"""
@@ -82,9 +82,12 @@ class DocumentDraftAgent:
 
 사용자가 입력한 내용은 필수 출력 항목들이 섞여 들어오는데, 잘개 쪼개서 분석하여 각각의 항목별 내용에 넣어주세요.
 
-## 필수 출력 형식 (정확히 이 JSON 구조를 따라주세요):
+그리고 다음 형식의 JSON으로 변환해주세요.
+
+## 필수 출력 형식 (정확히 이 JSON 구조를 따라주세요. (중괄호) 는 기호로 인식하세요):
 ```json
-{
+
+(중괄호)
     "방문제목": "",
     "고객사명": "",
     "담당자": "",
@@ -99,17 +102,17 @@ class DocumentDraftAgent:
     "방문및협의내용": "",
     "향후계획및일정": "",
     "협조사항및공유사항": ""
-}
+(중괄호)
 ```
 
 ## 작성 지침:
-1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요
+1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요. 없다면 공백 ("")으로 처리하세요
 2. 파악되지 않는 정보는 빈 문자열("")로 처리하세요
 3. "방문및협의내용", "향후계획및일정", "협조사항및공유사항"은 반드시 정중하고 공식적인 보고서 어투로 작성하세요
 4. 구어체(했어, 갔어, 이야 등)는 격식 있는 표현(하였습니다, 방문하였습니다, 입니다 등)으로 변환하세요
 5. 추측하지 말고 명확히 언급된 내용만 기록하세요
 
-**응답은 오직 JSON만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
+**응답은 오직 JSON형태로만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
                 """,
                 "fallback_fields": {
                     "방문제목": "", "고객사명": "", "담당자": "", "방문Site": "", "담당자소속": "", 
@@ -145,9 +148,9 @@ class DocumentDraftAgent:
 
 사용자가 입력한 내용은 필수 출력 항목들이 섞여 들어오는데, 잘개 쪼개서 분석하여 각각의 항목별 내용에 넣어주세요.
 
-## 필수 출력 형식 (정확히 이 JSON 구조를 따라주세요):
+## 필수 출력 형식 (정확히 이 JSON 구조를 따라주세요. (중괄호) 는 기호로 인식하세요.):
 ```json
-{
+(중괄호)
     "구분단일복수": "",
     "일시": "",
     "제품명": "",
@@ -158,17 +161,17 @@ class DocumentDraftAgent:
     "제품설명회주요내용": "",
     "직원팀명이름": "",
     "의료기관명이름": ""
-}
+(중괄호)
 ```
 
 ## 작성 지침:
-1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요
+1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요. 없다면 공백 ("")으로 처리하세요
 2. 파악되지 않는 정보는 빈 문자열("")로 처리하세요
 3. 공식적인 보고서 어투로 작성하세요
 4. 구어체는 격식 있는 표현으로 변환하세요
 5. 추측하지 말고 명확히 언급된 내용만 기록하세요
 
-**응답은 오직 JSON만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
+**응답은 오직 JSON형태로만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
                 """,
                 "fallback_fields": {
                     "구분단일복수": "", "일시": "", "제품명": "", "PM참석": "", "장소": "",
@@ -208,11 +211,15 @@ class DocumentDraftAgent:
                 "system_prompt": """
 당신은 제품설명회 시행 결과보고서 작성 전문가입니다.
 
-사용자가 입력한 내용은 필수 출력 항목들이 섞여 들어오는데, 잘개 쪼개서 분석하여 각각의 항목별 내용에 넣어주세요.
+사용자가 입력한 문장을 분석하여 아래 JSON 형식에 맞게 각 항목에 정확히 대응되는 값을 채워주세요.
 
-## 필수 출력 형식 (정확히 이 JSON 구조를 따라주세요):
-```json
-{
+- 항목 외의 설명, 안내 문구, 개행 등의 추가 텍스트를 절대 출력하지 마세요.
+- 반드시 JSON 객체 전체만 출력하세요. JSON 외 텍스트가 포함되면 안 됩니다.
+- 값이 명확히 언급되지 않은 항목은 빈 문자열("")로 채우세요.
+
+다음 JSON 구조를 정확히 그대로 사용하세요. (중괄호) 는 기호로 인식하세요.:
+
+(중괄호)
     "구분단일복수": "",
     "일시": "",
     "제품명": "",
@@ -227,17 +234,16 @@ class DocumentDraftAgent:
     "메뉴": "",
     "주류": "",
     "일인금액": ""
-}
-```
+(중괄호)
 
 ## 작성 지침:
-1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요
+1. 각 항목은 사용자 입력에서 파악 가능한 정보만 채워넣으세요. 없다면 공백 ("")으로 처리하세요
 2. 파악되지 않는 정보는 빈 문자열("")로 처리하세요
 3. 공식적인 보고서 어투로 작성하세요
 4. 구어체는 격식 있는 표현으로 변환하세요
 5. 추측하지 말고 명확히 언급된 내용만 기록하세요
 
-**응답은 오직 JSON만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
+**응답은 오직 JSON형태로만 출력하세요. 다른 설명이나 텍스트는 포함하지 마세요.**
                 """,
                 "fallback_fields": {
                     "구분단일복수": "", "일시": "", "제품명": "", "PM참석": "", "장소": "",
@@ -246,12 +252,9 @@ class DocumentDraftAgent:
                 }
             }
         }
-
-
-
-    @staticmethod
+    
     @tool
-    def check_policy_violation(content: Annotated[str, "작성된 문서 본문"]) -> str:
+    def check_policy_violation(self, content: Annotated[str, "작성된 문서 본문"]) -> str:
         """작성된 문서 내용이 회사 규정을 위반하는지 검사합니다."""
         # 실제 규정 검사 로직 (예시)
         violations = []
@@ -274,11 +277,12 @@ class DocumentDraftAgent:
         if violations:
             return " | ".join(violations)
         return "OK"
-
+    
     def classify_doc_type(self, state: State) -> State:
         """LLM을 사용해서 사용자 요청을 분석하고 문서 타입을 분류합니다."""
-        # 재시작 플래그 초기화
-        state["restart_classification"] = False
+        # 재시도 카운터 초기화 (새로운 분류 시작시에만)
+        if state.get("classification_retry_count") is None:
+            state["classification_retry_count"] = 0
         
         user_message = state["messages"][-1].content
         
@@ -286,10 +290,11 @@ class DocumentDraftAgent:
             ("system", """
 사용자의 요청을 분석하여 다음 문서 타입 중 하나로 분류해주세요:
 1. 영업방문 결과보고서 - 고객 방문, 영업 활동 관련
-2. 제품설명회 시행 신청서 - 제품설명회 시행 관련
-3. 제품설명회 시행 결과보고서 - 제품설명회 시행 결과 관련
+2. 제품설명회 시행 신청서 - 제품설명회 진행 계획, 신청 관련
+3. 제품설명회 시행 결과보고서 - 제품설명회 완료 후 결과 보고 관련
 
-앞에 숫자는 제거하고 정확한 문서 타입 이름만 응답해주세요.
+반드시 위 3가지 중 하나의 정확한 문서 타입 이름만 응답해주세요.
+앞에 숫자는 제거하고 문서명만 출력하세요.
             """),
             ("human", "{user_request}")
         ])
@@ -302,28 +307,58 @@ class DocumentDraftAgent:
                 doc_type = content.strip()
             else:
                 doc_type = str(content).strip()
-                  
+            
+            # 유효한 문서 타입인지 확인
+            valid_types = ["영업방문 결과보고서", "제품설명회 시행 신청서", "제품설명회 시행 결과보고서"]
+            if doc_type not in valid_types:
+                doc_type = response
+                
             state["doc_type"] = doc_type
             print(f"📋 LLM 문서 타입 분류: {doc_type}")
             
         except Exception as e:
             print(f"⚠️ LLM 분류 실패, 기본값 사용: {e}")
-            state["doc_type"] = "실패"
+            state["doc_type"] = response
         
         return state
+
+    def validate_doc_type(self, state: State) -> State:
+        """분류된 문서 타입이 유효한지 확인합니다."""
+        doc_type = state.get("doc_type", "")
+        valid_types = ["영업방문 결과보고서", "제품설명회 시행 신청서", "제품설명회 시행 결과보고서"]
+        
+        if doc_type in valid_types:
+            print(f"✅ 유효한 문서 타입: {doc_type}")
+            # 분류 성공시 재시도 카운터 리셋
+            state["classification_retry_count"] = 0
+            return state
+        else:
+            # 재시도 횟수 증가
+            current_count = state.get("classification_retry_count") or 0
+            retry_count = current_count + 1
+            state["classification_retry_count"] = retry_count
+            
+            print(f"❌ 유효하지 않은 문서 타입: '{doc_type}'")
+            print(f"🔄 재분류 시도 {retry_count}/3")
+            
+            if retry_count >= 3:
+                print("⚠️ 최대 재시도 횟수 초과. 처리를 종료합니다.")
+                state["classification_retry_count"] = retry_count
+                state["end_process"] = True
+            else:
+                print("📝 다시 문서 타입을 입력해주세요:")
+                user_input = input("\n>>> ")
+                state["messages"].append(HumanMessage(content=user_input))
+            
+            return state
 
     def ask_required_fields(self, state: State) -> State:
         """문서 타입에 따라 필요한 정보를 사용자에게 요청합니다."""
         doc_type = state.get("doc_type", "")
         
-        # 문서 타입 검증 - 없거나 유효하지 않으면 처음부터 다시 시작
-        if not doc_type or doc_type not in self.doc_prompts:
-            print("❌ 문서 타입이 올바르게 설정되지 않았습니다.")
-            print("🔄 문서 타입 분류부터 다시 시작합니다...")
-            state["doc_type"] = None
-            state["restart_classification"] = True
-            return state
-            
+        # 파싱 실패 플래그 리셋
+        state["parse_failed"] = False
+        
         prompt_text = self.doc_prompts[doc_type]["input_prompt"]
         print(f"\n❓ 필수 정보 입력 요청:")
         print(prompt_text)
@@ -338,89 +373,72 @@ class DocumentDraftAgent:
         return state
 
     def parse_user_input(self, state: State) -> State:
-        """LLM을 사용해서 사용자 입력을 파싱하고 구조화된 데이터로 변환합니다."""
-        user_input = str(state["messages"][-1].content)  # str로 변환하여 안전하게 처리
+        user_input = str(state["messages"][-1].content)
         doc_type = state["doc_type"]
-        
-        # 문서 타입에 따른 프롬프트 선택
-        if doc_type not in self.doc_prompts:
-            print(f"⚠️ 지원하지 않는 문서 타입: {doc_type}")
-            print("영업방문 결과보고서로 기본 처리합니다.")
-            doc_type = "영업방문 결과보고서"
-        
-        prompt_config = self.doc_prompts[doc_type]
-        
+        response = None  # 에러 발생 대비 초기화
+
+        if state.get("parse_retry_count") is None:
+            state["parse_retry_count"] = 0
+
+        system_prompt = self.doc_prompts[doc_type]["system_prompt"]
+        if not system_prompt:
+            raise ValueError(f"문서 타입에 대한 시스템 프롬프트가 없습니다: {doc_type}")
+
+        # 중괄호 이스케이프 처리
+        escaped_input = user_input.replace("{", "{{").replace("}", "}}")
+
         parsing_prompt = ChatPromptTemplate.from_messages([
-            ("system", prompt_config["system_prompt"]),
+            ("system", system_prompt),
             ("human", "{user_input}")
         ])
-        
+
         try:
-            response = self.llm.invoke(parsing_prompt.format_messages(user_input=user_input))
-            
+            formatted_messages = parsing_prompt.format_messages(user_input=escaped_input)
+            print("📨 LLM에 전달된 메시지:")
+            for m in formatted_messages:
+                print(f"[{m.type.upper()}] {m.content}")
+
+            response = self.llm.invoke(formatted_messages)
+
             content = response.content
-            if isinstance(content, str):
-                json_str = content
-            else:
-                json_str = str(content)
-            
-            # JSON 부분만 추출 (```json ... ``` 형태에서)
+            json_str = content if isinstance(content, str) else str(content)
+            print(f"\n🔍 LLM 응답 내용:\n{json_str}")
+
             if "{" in json_str and "}" in json_str:
                 start = json_str.find("{")
                 end = json_str.rfind("}") + 1
                 clean_json = json_str[start:end]
-                
+                print(f"\n🔍 추출된 JSON:\n{clean_json}")
+
+                import json
                 parsed_data = json.loads(clean_json)
                 state["filled_data"] = parsed_data
-                print(f"📝 LLM 변환 완료: 사용자 입력을 구조화된 데이터로 변환했습니다.")
+                state["parse_failed"] = False
+                print("✅ 파싱 성공:", parsed_data)
             else:
-                raise ValueError("구조화된 데이터 형식을 찾을 수 없음")
-            
-        except Exception as e:
-            print(f"⚠️ LLM 데이터 변환 실패: {e}")
-            print("🔄 기본 데이터로 처리합니다...")
-            
-            # 문서 타입에 맞는 기본 데이터로 폴백
-            fallback_data = prompt_config["fallback_fields"].copy()
-            # 원문은 첫 번째 필드에 저장
-            first_field = list(fallback_data.keys())[0]
-            if "협의내용" in fallback_data:
-                fallback_data["방문및협의내용"] = user_input
-            elif "주요내용" in fallback_data:
-                fallback_data["제품설명회주요내용"] = user_input
-            else:
-                fallback_data[first_field] = user_input
-                
-            state["filled_data"] = fallback_data
-            print(f"📝 기본 데이터로 설정 완료")
-        
-        # 파싱 결과 출력
-        self._display_parsed_data(state["filled_data"], doc_type)
-        
-        return state
+                raise ValueError("구조화된 JSON 형식을 찾을 수 없음")
 
-    def _display_parsed_data(self, filled_data: dict, doc_type: str):
-        """파싱된 데이터를 보기 좋게 출력합니다."""
-        print("\n" + "="*60)
-        print(f"📝 파싱 결과 - {doc_type}")
-        print("="*60)
-        
-        if not filled_data:
-            print("❌ 파싱된 데이터가 없습니다.")
-            return
-        
-        # 필드별로 출력
-        for key, value in filled_data.items():
-            if value and str(value).strip():  # 빈 값이 아닌 경우만 출력
-                print(f"📌 {key}:")
-                print(f"   {value}")
-                print()
+        except Exception as e:
+            print("\n⚠️ 예외 발생!")
+            if response:
+                print("응답 내용:")
+                print(response)
             else:
-                print(f"📌 {key}: (정보 없음)")
-        
-        print("="*60)
-        print("✅ 데이터 파싱 완료!")
-        print("="*60)
+                print("⚠️ response 객체가 존재하지 않습니다.")
+            print(f"⚠️ 예외 메시지: {e}")
+
+            retry_count = state.get("parse_retry_count", 0) + 1
+            state["parse_retry_count"] = retry_count
+
+            if retry_count >= 3:
+                print("⚠️ 파싱 재시도 초과. 기본값 사용.")
+                fallback_data = self.doc_prompts[doc_type]["fallback_fields"]
+                state["filled_data"] = fallback_data
+            else:
+                print(f"🔄 재시도 {retry_count}/3")
+                state["parse_failed"] = True
+
+        return state
 
     def run_check_policy_violation(self, state: State) -> State:
         """입력된 데이터가 회사 규정을 위반하는지 검사합니다."""
@@ -430,14 +448,25 @@ class DocumentDraftAgent:
         try:
             result = self.check_policy_violation.invoke({"content": content})
             state["violation"] = result
-            print(f"\n🔍 규정 검사 결과: {result}")
+            print(f"🔍 규정 검사 결과: {result}")
             
+            # 규정 위반이 없으면 parse_user_input 결과를 출력
             if result == "OK":
-                print("✅ 규정 위반이 없습니다! 처리를 완료합니다.")
+                print("\n✅ 규정 위반이 없습니다!")
+                print("=" * 60)
+                print("📝 파싱된 사용자 입력 데이터:")
+                print("=" * 60)
+                
+                for key, value in filled_data.items():
+                    if value:  # 빈 값이 아닌 경우만 출력
+                        print(f"- {key}: {value}")
+                
+                print("=" * 60)
+                print("✅ 문서 데이터 파싱 완료!")
+                return state
             else:
                 print("❌ 규정 위반이 발견되었으므로 재입력을 요청합니다.")
-            
-            return state
+                return state
         
         except Exception as e:
             print(f"⚠️ 규정 검사 실패: {e}")
@@ -460,12 +489,29 @@ class DocumentDraftAgent:
         
         return state
 
+    def doc_type_validation_router(self, state: State) -> str:
+        """문서 타입 유효성 검사 결과에 따라 다음 노드를 결정합니다."""
+        doc_type = state.get("doc_type", "")
+        valid_types = ["영업방문 결과보고서", "제품설명회 시행 신청서", "제품설명회 시행 결과보고서"]
+        retry_count = state.get("classification_retry_count") or 0
+        
+        if state.get("end_process"):
+            return "END"
+        elif doc_type in valid_types:
+            return "ask_required_fields"
+        else:
+            return "classify_doc_type"
+
     def ask_fields_router(self, state: State) -> str:
         """필수 정보 요청 후 다음 노드를 결정합니다."""
-        if state.get("restart_classification"):
-            return "classify_doc_type"
+        return "parse_user_input"
+    
+    def parse_router(self, state: State) -> str:
+        """파싱 결과에 따라 다음 노드를 결정합니다."""
+        if state.get("parse_failed"):
+            return "ask_required_fields"
         else:
-            return "parse_user_input"
+            return "check_policy_violation"
 
     def policy_check_router(self, state: State) -> str:
         """규정 검사 결과에 따라 다음 노드를 결정합니다."""
@@ -485,6 +531,7 @@ class DocumentDraftAgent:
 
         # 노드 추가
         graph.add_node("classify_doc_type", self.classify_doc_type)
+        graph.add_node("validate_doc_type", self.validate_doc_type)
         graph.add_node("ask_required_fields", self.ask_required_fields)
         graph.add_node("parse_user_input", self.parse_user_input)
         graph.add_node("check_policy_violation", self.run_check_policy_violation)
@@ -492,7 +539,20 @@ class DocumentDraftAgent:
 
         # 흐름 연결
         graph.set_entry_point("classify_doc_type")
-        graph.add_edge("classify_doc_type", "ask_required_fields")
+        
+        # 문서 타입 분류 → 유효성 검사
+        graph.add_edge("classify_doc_type", "validate_doc_type")
+        
+        # 유효성 검사 결과에 따른 분기
+        graph.add_conditional_edges(
+            "validate_doc_type",
+            self.doc_type_validation_router,
+            {
+                "ask_required_fields": "ask_required_fields",  # 유효한 타입
+                "classify_doc_type": "classify_doc_type",      # 재분류 필요
+                "END": END                                     # 최대 재시도 횟수 초과시 종료
+            }
+        )
 
         # 조건부 분기 - 문서 타입 재시작 또는 정상 진행
         graph.add_conditional_edges(
@@ -504,7 +564,15 @@ class DocumentDraftAgent:
             }
         )
 
-        graph.add_edge("parse_user_input", "check_policy_violation")
+        # 파싱 결과에 따른 분기
+        graph.add_conditional_edges(
+            "parse_user_input",
+            self.parse_router,
+            {
+                "ask_required_fields": "ask_required_fields",  # 파싱 실패시 재입력
+                "check_policy_violation": "check_policy_violation"  # 파싱 성공시 규정 검사
+            }
+        )
 
         # 조건부 분기 - 규정 위반 시 재입력 루프, OK시 종료
         graph.add_conditional_edges(
@@ -520,3 +588,53 @@ class DocumentDraftAgent:
         graph.add_edge("inform_violation", "parse_user_input")
 
         return graph.compile()
+    
+    def run(self, user_input: str):
+        """워크플로우를 실행하고 결과를 반환합니다."""
+        initial_state = {
+            "messages": [HumanMessage(content=user_input)],
+            "doc_type": None,
+            "template_content": None,
+            "filled_data": None,
+            "violation": None,
+            "final_doc": None,
+            "retry_count": 0,
+            "restart_classification": None,
+            "classification_retry_count": None
+        }
+        
+        # 그래프 실행
+        final_state = self.app.invoke(initial_state)
+        
+        # 파싱 결과 반환
+        if final_state.get("filled_data"):
+            print("\n" + "="*50)
+            print("📄 최종 파싱 결과:")
+            print("="*50)
+            
+            import json
+            result = json.dumps(final_state["filled_data"], indent=2, ensure_ascii=False)
+            print(result)
+            
+            return final_state["filled_data"]
+        else:
+            print("\n❌ 파싱 결과가 없습니다.")
+            return None
+
+if __name__ == "__main__":
+    # 에이전트 실행 예시
+    agent = DocumentDraftAgent()
+    
+    print("🚀 문서 초안 작성 시스템을 시작합니다...")
+    print("문서 작성 요청을 입력해주세요:")
+    
+    user_input = input("\n>>> ")
+    
+    # 에이전트 실행
+    result = agent.run(user_input)
+    
+    if result:
+        print("\n✅ 처리 완료!")
+        print("반환된 결과:", result)
+    else:
+        print("\n❌ 처리 실패")
