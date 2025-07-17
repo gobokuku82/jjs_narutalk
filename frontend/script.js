@@ -452,20 +452,8 @@ function addAgentBadgeToMessage(container, agentType) {
 // 대화 지우기
 function clearChat() {
     if (confirm('모든 대화를 지우시겠습니까?')) {
-        // 초기 메시지만 남기고 모든 메시지 제거
-        chatMessages.innerHTML = `
-            <div class="message-container">
-                <div class="message bot-message">
-                    <div class="message-avatar">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                    <div class="message-content">
-                        <div class="message-text">안녕하세요! NaruTalk AI Assistant입니다. 무엇을 도와드릴까요?</div>
-                        <div class="message-time">${formatTime(new Date())}</div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // 모든 메시지 제거 (초기 메시지도 제거)
+        chatMessages.innerHTML = '';
         
         // 새로운 세션 시작
         sessionId = generateSessionId();

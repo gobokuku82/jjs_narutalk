@@ -107,7 +107,7 @@ class StateManager:
             routing_result = await self.agent_router.route_message(
                 message=current_message,
                 session_id=session_id,
-                user_id=state["user_id"]
+                user_id=state["user_id"] or "unknown"
             )
             
             if routing_result.get("error"):
@@ -123,10 +123,11 @@ class StateManager:
                 "chroma_db_agent": AgentType.CHROMA_DB,
                 "employee_db_agent": AgentType.EMPLOYEE_DB,
                 "client_analysis_agent": AgentType.CLIENT_ANALYSIS,
-                "rule_compliance_agent": AgentType.RULE_COMPLIANCE
+                "rule_compliance_agent": AgentType.RULE_COMPLIANCE,
+                "general_chat": AgentType.CHROMA_DB  # general_chat은 기본적으로 문서 검색으로 처리
             }
             
-            state["current_agent"] = agent_type_map.get(agent_name)
+            state["current_agent"] = agent_type_map.get(agent_name, AgentType.CHROMA_DB)  # 기본값 설정
             state["agent_arguments"] = routing_result.get("arguments", {})
             state["sources"] = routing_result.get("sources", [])
             
@@ -197,7 +198,7 @@ class StateManager:
                 routing_result = await self.agent_router.route_message(
                     message=current_message,
                     session_id=session_id,
-                    user_id=state["user_id"]
+                    user_id=state["user_id"] or "unknown"
                 )
                 
                 response_text = routing_result.get("response", "죄송합니다. 응답을 생성할 수 없습니다.")
@@ -243,9 +244,11 @@ class StateManager:
             # 새로운 메시지가 있으면 데이터베이스에 저장
             if len(state["messages"]) >= 2:
                 # 마지막 사용자 메시지와 어시스턴트 메시지 저장
+                current_time = datetime.now()
                 for message in state["messages"][-2:]:
-                    if message.timestamp > datetime.now().replace(second=datetime.now().second-10):
-                        # 최근 10초 이내의 메시지만 저장 (중복 방지)
+                    # 최근 10초 이내의 메시지만 저장 (중복 방지)
+                    time_diff = (current_time - message.timestamp).total_seconds()
+                    if time_diff < 10:
                         self.session_manager.conversation_store.save_message(session_id, message)
             
             state["conversation_metadata"]["state_saved_at"] = datetime.now().isoformat()

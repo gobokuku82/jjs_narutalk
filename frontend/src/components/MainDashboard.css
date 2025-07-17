@@ -1,0 +1,111 @@
+.main-dashboard {
+  display: flex;
+  height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #343a40;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+}
+
+.logo {
+  padding: 0 20px 20px 20px;
+  border-bottom: 1px solid #495057;
+  margin-bottom: 20px;
+}
+
+.logo h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.nav-menu {
+  flex: 1;
+}
+
+.nav-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.nav-item:hover {
+  background-color: #495057;
+}
+
+.nav-item.active {
+  background-color: #6c757d;
+}
+
+.nav-icon {
+  margin-right: 12px;
+  font-size: 1.2rem;
+}
+
+.nav-text {
+  font-size: 0.9rem;
+}
+
+.sidebar-bottom {
+  padding: 20px;
+  border-top: 1px solid #495057;
+}
+
+.main-content {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.welcome-section {
+  margin-bottom: 40px;
+}
+
+.welcome-section h1 {
+  color: #333;
+  font-size: 2.5rem;
+  margin: 0;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.card {
+  background-color: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.card h3 {
+  margin: 0 0 15px 0;
+  color: #666;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.card-value {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #007bff;
+} 
